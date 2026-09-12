@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>Nudgelings</string>
+    <key>CFBundleDisplayName</key><string>Nudgelings</string>
+    <key>CFBundleIdentifier</key><string>app.nudgelings.mac</string>
+    <key>CFBundleExecutable</key><string>Drip</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>1.1.0</string>
+    <key>CFBundleVersion</key><string>2</string>
+    <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>LSUIElement</key><true/>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>LSApplicationCategoryType</key><string>public.app-category.healthcare-fitness</string>
+    <key>NSHumanReadableCopyright</key><string>A tiny crew that gently bullies you into being healthy.</string>
+</dict>
+</plist>
