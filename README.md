@@ -27,18 +27,18 @@ The mascot is **Drip**, a melodramatic droplet who lives in your menu bar. Drip 
   - Optionally, **escalate if ignored**.
 - **Auto-hush.** If your camera or mic is in use, or a full-screen app is in front, reminders wait. They come back 2 minutes after the meeting ends ("You survived the meeting. Now DRINK."). Locking the screen or sleeping counts too.
 - **Hydration Wrapped.** Choose *Share today* to export a 1080×1350 card of your day to `~/Downloads`.
-- **Private.** No network access, no accounts, no telemetry. Everything is stored as JSON in `~/Library/Application Support/Sip Happens/`. Auto-hush only reads whether the camera or mic is on; it never records anything.
+- **Private.** No network access, no accounts, no telemetry. Everything is stored as JSON in `~/Library/Application Support/Nudgelings/`. Auto-hush only reads whether the camera or mic is on; it never records anything.
 
 ## Build & run
 
 Requires macOS 14+ and the Xcode Command Line Tools (full Xcode not needed).
 
 ```bash
-scripts/build-app.sh          # → "dist/Sip Happens.app" (release, ad-hoc signed)
-open "dist/Sip Happens.app"
+scripts/build-app.sh          # → "dist/Nudgelings.app" (release, ad-hoc signed)
+open "dist/Nudgelings.app"
 ```
 
-Sip Happens is not notarised, so the first time you open a copy on another Mac, right-click it and choose **Open**.
+Nudgelings is not notarised, so the first time you open a copy on another Mac, right-click it and choose **Open**.
 
 ## Develop
 
@@ -46,7 +46,7 @@ Sip Happens is not notarised, so the first time you open a copy on another Mac, 
 scripts/test.sh                          # unit tests for DripCore (Swift Testing)
 swift build && .build/debug/Drip         # run unbundled (notifications need the .app)
 .build/debug/Drip --snapshot out/        # render faces, gags and share card to PNG
-"dist/Sip Happens.app/Contents/MacOS/Drip" --try water flood   # fire a fast preview on launch
+"dist/Nudgelings.app/Contents/MacOS/Drip" --try water flood   # fire a fast preview on launch
 ```
 
 | Module | What's in it |
