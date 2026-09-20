@@ -53,3 +53,7 @@ swift build && .build/debug/Drip         # run unbundled (notifications need the
 |---|---|
 | `Sources/DripCore` | Pure logic with an injected clock: models, `Scheduler`, `Escalation`, `HydrationState`, `ReminderEngine`, `Store`, `Lines`. Fully unit-tested. |
 | `Sources/Drip` | The AppKit/SwiftUI shell: menu-bar glass, click-through overlay panels, water and gag rendering, the pill, settings, onboarding, hush detection, notifications, share card. |
+
+## License
+
+MIT, see [LICENSE](LICENSE). The bundled Fredoka and Nunito fonts are under the SIL Open Font License (`Resources/Fonts/OFL-*.txt`).
