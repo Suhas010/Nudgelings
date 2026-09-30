@@ -1,4 +1,4 @@
-<img width="543" height="299" alt="Screenshot 2026-09-30 at 1 54 37 PM" src="https://github.com/user-attachments/assets/8cde1b00-9163-4cc0-bc23-6360fd1f71ad" />
+<img width="1496" height="843" alt="Screenshot 2026-09-30 at 2 42 49 PM" src="https://github.com/user-attachments/assets/9f403385-0440-43d4-8533-9daf4737aacd" />
 
 # Nudgelings
 
