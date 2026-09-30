@@ -1,6 +1,9 @@
+<img width="1811" height="1016" alt="Screenshot 2026-09-30 at 2 38 03 PM" src="https://github.com/user-attachments/assets/43ca1ff6-8c1b-4ff7-8c3c-9c3716710fc1" />
+
 # Nudgelings
 
 A macOS menu-bar app that nags you to drink water, rest your eyes, fix your posture, stretch and walk. Instead of sending banners you dismiss on reflex, it makes the screen react:
+
 
 - **Water:** waves roll across your menu bar. Ignore them and bubbles rise, then water fills your screen, and then a fish swims past your Slack.
 - **Eyes (20-20-20):** your screen fogs up, and a wiper clears it after 20 seconds of looking away.
