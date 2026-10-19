@@ -71,6 +71,12 @@ enum Snapshots {
         save(page(HabitEditor(model: model, notifier: model.notifier, kind: .water)), "main-editor-water", dir)
         save(page(StylesPage(model: model)), "main-styles", dir)
         save(page(AboutPage()), "main-about", dir)
+        save(HStack(alignment: .top, spacing: 10) {
+            ForEach(NudgeLevel.allCases) { LevelCard(level: $0, kind: .water, selected: $0 == .polite) {} }
+        }.padding(32).frame(width: 580).background(Theme.paper).environment(\.colorScheme, .light), "onboarding-levels", dir)
+        for step in 0..<4 {
+            save(OnboardingView(model: model, startStep: step) {}.environment(\.colorScheme, .light), "onboarding-\(step + 1)", dir)
+        }
         save(PushinessPicker(selection: .constant(.nag)).padding(20).frame(width: 520).background(Theme.paper), "pushiness", dir)
         save(TimeGrid(time: .constant(ClockTime(hour: 9, minute: 30)), tint: HabitKind.eyes.color) {}, "time-grid", dir)
         save(HoursRow(window: .constant(.workdays), tint: HabitKind.eyes.color).padding(16).background(Theme.raised), "hours-row", dir)
@@ -142,11 +148,29 @@ enum Snapshots {
         save(MenuPopover(model: model, openMain: { _ in }, share: {}).environment(\.colorScheme, .light), "popover-paused", dir)
         save(page(CrewPage(model: model, nav: .shared)), "main-crew-paused", dir)
         model.resume()
+        // Individual characters on transparent backgrounds (for video/motion work)
+        for k in HabitKind.allCases {
+            for (name, e) in [("happy", Expression.happy), ("cheer", Expression.cheer), ("worried", Expression.worried), ("sleepy", Expression.sleepy)] {
+                save(CharacterView(kind: k, expression: e, size: 300).frame(width: 300, height: 300), "char-\(k.rawValue)-\(name)", dir)
+            }
+        }
+        save(CharacterView(kind: .water, expression: .cheer, size: 300, tint: .white).frame(width: 300, height: 300), "char-water-white", dir)
         print("snapshots → \(dir.path)")
     }
 
     private static func page(_ v: some View) -> some View {
         v.padding(28).frame(width: 860, alignment: .topLeading).background(Theme.paper).environment(\.colorScheme, .light)
+    }
+
+    /// Finder window art for the DMG (660×480 pt). Icon centres must match scripts/make-dmg.sh:
+    /// the app at (170, 215), the Applications link at (490, 215).
+    static func dmgBackground(to base: String) {
+        Fonts.register()
+        Motion.snapshot = true
+        let v = DMGBackground().environment(\.colorScheme, .light)
+        for (scale, suffix) in [(1.0, ""), (2.0, "@2x")] {
+            try? pngData(of: v, scale: scale)?.write(to: URL(fileURLWithPath: base + suffix + ".png"))
+        }
     }
 
     /// `Drip --icon <file.png>` renders the 1024px app icon.
@@ -200,5 +224,59 @@ private struct FakeDesktop: View {
                 }
                 .offset(x: 120, y: 110)
         }
+    }
+}
+
+/// The DMG window: a desk-paper grid, a dashed "drag me" arrow between the two icon slots, and the crew cheering below.
+private struct DMGBackground: View {
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Theme.paper
+            Canvas { ctx, size in
+                var grid = Path()
+                for x in stride(from: 0.0, through: size.width, by: 30) { grid.move(to: CGPoint(x: x, y: 0)); grid.addLine(to: CGPoint(x: x, y: size.height)) }
+                for y in stride(from: 0.0, through: size.height, by: 30) { grid.move(to: CGPoint(x: 0, y: y)); grid.addLine(to: CGPoint(x: size.width, y: y)) }
+                ctx.stroke(grid, with: .color(Color(hex: 0xe3ece7)), lineWidth: 1)
+                // Arrow from the app slot to the Applications slot.
+                var arc = Path()
+                arc.move(to: CGPoint(x: 258, y: 200))
+                arc.addQuadCurve(to: CGPoint(x: 398, y: 200), control: CGPoint(x: 328, y: 150))
+                ctx.stroke(arc, with: .color(Theme.ink), style: StrokeStyle(lineWidth: 6, lineCap: .round, dash: [2, 14]))
+                var head = Path()
+                head.move(to: CGPoint(x: 384, y: 180)); head.addLine(to: CGPoint(x: 404, y: 203)); head.addLine(to: CGPoint(x: 377, y: 210))
+                ctx.stroke(head, with: .color(Theme.ink), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+            }
+            VStack(spacing: 4) {
+                Text("Drag Drip home").font(.display(30, .bold)).foregroundStyle(Theme.text)
+                Text("Drop Nudgelings into Applications, then open it from there.")
+                    .font(.body(13.5, .bold)).foregroundStyle(Theme.muted)
+            }
+            .frame(width: 660).padding(.top, 34)
+            // Soft pads under the two icon slots so they read as places to drop.
+            ForEach([170.0, 490.0], id: \.self) { x in
+                RoundedRectangle(cornerRadius: 26, style: .continuous).fill(x < 300 ? HabitKind.water.wash : Theme.canvas)
+                    .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 2.5, dash: [7, 6])))
+                    .frame(width: 164, height: 164).position(x: x, y: 215)
+            }
+            // Builds aren't notarised: say up front how to get past Gatekeeper's first refusal.
+            HStack(alignment: .center, spacing: 14) {
+                CrewRow(kinds: [.water, .eyes], size: 30, animated: false)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("First time opening it?").font(.display(14, .bold)).foregroundStyle(Theme.text)
+                    Text("macOS will say it can't check Nudgelings. Click Done, then open System Settings › Privacy & Security, scroll down and click Open Anyway. Only once.")
+                        .font(.body(11.5, .bold)).foregroundStyle(Theme.text.opacity(0.75))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 14).padding(.vertical, 11)
+            .frame(width: 580, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.sun.opacity(0.28)))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.outline, lineWidth: 2))
+            .position(x: 330, y: 400)
+            Text("Lives in your menu bar  ·  no accounts, no tracking, no network")
+                .font(.body(11, .bold)).foregroundStyle(Theme.muted)
+                .frame(width: 660).position(x: 330, y: 458)
+        }
+        .frame(width: 660, height: 480)
     }
 }

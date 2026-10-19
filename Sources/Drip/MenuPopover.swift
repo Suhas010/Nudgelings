@@ -36,17 +36,12 @@ struct MenuPopover: View {
             if let reason = model.hushReason, reason != .paused {
                 Text(reason.message).font(.body(12.5, .bold)).foregroundStyle(Theme.muted).entrance(2)
             }
-            ScrollView(.vertical, showsIndicators: true) {
-                VStack(spacing: Self.rowSpacing) {
-                    ForEach(Array(model.settings.enabledKinds.enumerated()), id: \.element) { i, kind in
-                        CrewRowCard(model: model, kind: kind) { openMain(.editor(kind)) }.entrance(i + 2)
-                    }
-                    offDuty.entrance(model.settings.enabledKinds.count + 2)
-                }
-                .padding(.bottom, 5)   // room for the cards' hard shadows
-                .padding(.top, 3)
+            if Motion.snapshot {
+                crewList   // offscreen renders can't draw scroll views
+            } else {
+                ScrollView(.vertical, showsIndicators: true) { crewList }
+                    .frame(height: listHeight)
             }
-            .frame(height: listHeight)
             footer.entrance(model.settings.enabledKinds.count + 3)
         }
         .padding(16)
@@ -54,6 +49,17 @@ struct MenuPopover: View {
         .background(Theme.paper)
         .environment(\.motionPaused, !motion.popoverOpen)
         .id(openID)
+    }
+
+    private var crewList: some View {
+        VStack(spacing: Self.rowSpacing) {
+            ForEach(Array(model.settings.enabledKinds.enumerated()), id: \.element) { i, kind in
+                CrewRowCard(model: model, kind: kind) { openMain(.editor(kind)) }.entrance(i + 2)
+            }
+            offDuty.entrance(model.settings.enabledKinds.count + 2)
+        }
+        .padding(.bottom, 5)   // room for the cards' hard shadows
+        .padding(.top, 3)
     }
 
     private var greeting: String {

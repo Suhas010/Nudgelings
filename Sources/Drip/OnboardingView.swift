@@ -2,31 +2,13 @@ import SwiftUI
 import ServiceManagement
 import DripCore
 
-/// How the crew should get your attention (onboarding step 3).
-enum AttentionStyle: CaseIterable {
-    case shoulder, whisper, inPerson
-
-    var title: String {
-        switch self {
-        case .shoulder: "Tap on the shoulder"
-        case .whisper: "Whisper"
-        case .inPerson: "Show up in person"
-        }
-    }
-    var blurb: String {
-        switch self {
-        case .shoulder: "A sound and a corner toast. Recommended."
-        case .whisper: "Just the menu bar wiggle. Silent and sneaky."
-        case .inPerson: "Characters walk across your screen, and after a while it goes full-screen."
-        }
-    }
-    /// Nudges for a hired habit; shoulder keeps each character's own recommended pick.
+/// Onboarding step 3 picks one level for everyone hired. A character whose own recommended style
+/// is on that level keeps it; the rest take the level's first style. Sound choices stay as recommended.
+extension NudgeLevel {
     func nudges(for kind: HabitKind) -> [NudgeType] {
-        switch self {
-        case .shoulder: HabitConfig.defaults(for: kind).nudges
-        case .whisper: [.menuWiggle]
-        case .inPerson: [.walkAcross, .gag]
-        }
+        var c = HabitConfig.defaults(for: kind)
+        if c.style.level != self { c.style = styles[0] }
+        return c.nudges
     }
 }
 
@@ -35,9 +17,9 @@ struct OnboardingView: View {
     @ObservedObject var model: AppModel
     var finish: () -> Void
 
-    @State private var step = 0
+    @State private var step: Int
     @State private var hired: Set<HabitKind> = [.water, .eyes, .walk, .stretch]
-    @State private var attention: AttentionStyle = .shoulder
+    @State private var attention: NudgeLevel = .polite
     @State private var pushiness: Pushiness = .gentle
     @State private var start = ClockTime(hour: 9, minute: 30)
     @State private var end = ClockTime(hour: 18, minute: 30)
@@ -46,6 +28,12 @@ struct OnboardingView: View {
     @State private var login = true
     @State private var forward = true
     @State private var hireBump: [HabitKind: Int] = [:]
+
+    init(model: AppModel, startStep: Int = 0, finish: @escaping () -> Void) {
+        self.model = model
+        self.finish = finish
+        _step = State(initialValue: startStep)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -118,7 +106,7 @@ struct OnboardingView: View {
             c.window = ActiveWindow(weekdays: days, start: start, end: end)
             s.habits[kind] = c
         }
-        s.pushiness = attention == .inPerson && pushiness == .gentle ? .nag : pushiness
+        s.pushiness = pushiness
         s.autoHush = hush
         s.onboarded = true
         model.update(s)
@@ -179,27 +167,29 @@ struct OnboardingView: View {
     private var style: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("How should they get\nyour attention?").font(.display(30, .bold)).foregroundStyle(Theme.text)
-            ForEach(Array(AttentionStyle.allCases.enumerated()), id: \.element) { i, a in
-                Button { withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) { attention = a } } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(a.title).font(.display(16, .semibold)).foregroundStyle(Theme.text)
-                            Text(a.blurb).font(.body(13)).foregroundStyle(Theme.text.opacity(0.75))
-                        }
-                        Spacer()
-                        Image(systemName: attention == a ? "largecircle.fill.circle" : "circle").font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(Theme.text)
+            Text("Pick how loud the first nudge is. You can change it per character later.")
+                .font(.body(14)).foregroundStyle(Theme.muted)
+            HStack(alignment: .top, spacing: 10) {
+                ForEach(Array(NudgeLevel.allCases.enumerated()), id: \.element) { i, l in
+                    LevelCard(level: l, kind: .water, selected: attention == l) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) { attention = l }
                     }
-                    .padding(14)
-                    .toyCard(attention == a ? Color(light: 0xe3f5df, dark: 0x234027) : Theme.raised, radius: 14, shadow: attention == a ? 3 : 0)
-                    .offset(y: attention == a ? -1 : 0)
-                    .contentShape(Rectangle())
+                    .overlay(alignment: .topLeading) {
+                        if l == .polite {
+                            Text("Recommended").font(.body(10.5, .heavy)).foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(Capsule().fill(Theme.sun)).overlay(Capsule().strokeBorder(Theme.outline, lineWidth: 1.5))
+                                .offset(x: 8, y: -9)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .entrance(i, step: 0.06, base: 0.12)
                 }
-                .buttonStyle(.plain)
-                .handCursor()
-                .entrance(i, step: 0.06, base: 0.12)
             }
-            Text("HOW PUSHY IF YOU IGNORE THEM").font(.display(12, .semibold)).foregroundStyle(Theme.muted).padding(.top, 4)
+            Text(attention.blurb(.water).replacingOccurrences(of: "Drip", with: "Your crew"))
+                .font(.body(13)).foregroundStyle(Theme.text.opacity(0.8))
+            Text("IF YOU IGNORE A NUDGE, IT COMES BACK LOUDER. HOW PUSHY?").font(.display(12, .semibold)).foregroundStyle(Theme.muted).padding(.top, 4)
+                .accessibilityAddTraits(.isHeader)
             PushinessPicker(selection: $pushiness)
             .padding(.top, 6)
         }
@@ -225,11 +215,36 @@ struct OnboardingView: View {
                         .background(RoundedRectangle(cornerRadius: 10).fill(on ? Theme.inverse : Color.clear))
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(on ? Theme.inverse : Theme.muted.opacity(0.5), lineWidth: 2))
                         .foregroundStyle(on ? Theme.inverseText : Theme.muted)
+                        .accessibilityLabel(Calendar.current.weekdaySymbols[d - 1])
+                        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
                 }
             }
             toggleRow("Hush during calls", "Stays quiet while your camera or mic is on", $hush)
             toggleRow("Open at login", "The crew clocks in with you", $login)
+            menuBarHint
         }
+    }
+
+    /// There's no Dock icon, so say where the crew lives before the window goes away.
+    private var menuBarHint: some View {
+        HStack(spacing: 12) {
+            ZStack(alignment: .trailing) {
+                RoundedRectangle(cornerRadius: 7).fill(.white).frame(width: 86, height: 26)
+                    .overlay(alignment: .bottom) { Rectangle().fill(Theme.outline).frame(height: 1.5) }
+                CharacterView(kind: .water, expression: .happy, size: 18, shadow: false).padding(.trailing, 8)
+            }
+            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.outline, lineWidth: 2))
+            .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("You'll find us in your menu bar").font(.display(15, .semibold)).foregroundStyle(Theme.text)
+                Text("Top right of your screen. Click Drip for today, settings and pause.")
+                    .font(.body(12.5)).foregroundStyle(Theme.text.opacity(0.75))
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .toyCard(HabitKind.water.wash, radius: 14, shadow: 0)
+        .accessibilityElement(children: .combine)
     }
 
     private func bigTime(_ t: Binding<ClockTime>) -> some View {

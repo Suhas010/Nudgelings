@@ -5,24 +5,9 @@ import DripCore
 // MARK: - Vocabulary
 
 extension NudgeType {
-    var title: String {
-        switch self {
-        case .menuWiggle: "Menu wiggle"
-        case .sound: "Sound cue"
-        case .toast: "Corner toast"
-        case .menuShow: "Menu-bar show"
-        case .walkAcross: "Walk-across"
-        case .cursorTrail: "Cursor trail"
-        case .dim: "Dim & blur"
-        case .gag: "Screen gag"
-        case .takeover: "Takeover"
-        case .miniGame: "Mini-game"
-        }
-    }
-
     func subtitle(for kind: HabitKind, sound: SoundCue) -> String {
         switch self {
-        case .menuWiggle: return "Barely there"
+        case .menuWiggle: return "\(kind.character) wiggles in the menu bar"
         case .sound: return "Plays \(soundName(sound).lowercased())"
         case .toast: return "Top-right card"
         case .menuShow:
@@ -71,22 +56,6 @@ extension NudgeType {
             }
         }
     }
-
-    /// Short label for summaries ("toast + brook sound").
-    var short: String {
-        switch self {
-        case .menuWiggle: "menu wiggle"
-        case .sound: "sound"
-        case .toast: "toast"
-        case .menuShow: "menu-bar show"
-        case .walkAcross: "walks across screen"
-        case .cursorTrail: "cursor trail"
-        case .dim: "dim + countdown"
-        case .gag: "screen gag"
-        case .takeover: "takeover"
-        case .miniGame: "mini-game"
-        }
-    }
 }
 
 func durationText(_ minutes: Int) -> String {
@@ -105,7 +74,18 @@ extension HabitConfig {
         }
     }
     var summary: String {
-        enabled ? "\(scheduleText) · \(nudges.map(\.short).joined(separator: " + "))" : "Off duty. Zzz."
+        enabled ? "\(scheduleText) · \(style.title)\(playsSound ? " + sound" : "")" : "Off duty. Zzz."
+    }
+    /// "every 30 min after you last did it", "at 11:30 AM and 3:00 PM".
+    var scheduleSentence: String {
+        switch schedule {
+        case let .every(minutes, anchor): "every \(durationText(minutes))" + (anchor == .lastDone ? " after you last did it" : " on the clock")
+        case let .atTimes(times):
+            "at " + ListFormatter.localizedString(byJoining: times.map { $0.date.formatted(date: .omitted, time: .shortened) })
+        }
+    }
+    var windowSentence: String {
+        "between \(window.start.date.formatted(date: .omitted, time: .shortened)) and \(window.end.date.formatted(date: .omitted, time: .shortened)) \(window.daysText)"
     }
     var goalNoun: String {
         switch kind {
@@ -178,7 +158,7 @@ struct Sidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Spacer().frame(height: 44)   // clears the window's traffic lights
-            item("Crew", selected: nav.page == .crew || isEditor) { go(.crew) }
+            item("Crew", icon: "person.3.fill", tint: Theme.leaf, selected: nav.page == .crew || isEditor) { go(.crew) }
             if isEditor || nav.page == .crew {
                 ForEach(HabitKind.allCases) { kind in
                     Button { go(.editor(kind)) } label: {
@@ -188,7 +168,7 @@ struct Sidebar: View {
                             Text("\(kind.character) · \(kind.noun)").font(.body(13, .bold))
                                 .foregroundStyle(nav.page == .editor(kind) ? kind.accent : Theme.text.opacity(0.85))
                         }
-                        .padding(.leading, 12).padding(.vertical, 4)
+                        .padding(.leading, 14).padding(.vertical, 5)
                         .padding(.trailing, 8)
                         .background(RoundedRectangle(cornerRadius: 8).fill(nav.page == .editor(kind) ? kind.wash : .clear))
                         .padding(.leading, 6)
@@ -199,12 +179,12 @@ struct Sidebar: View {
                     .handCursor()
                 }
             }
-            item("Nudge styles", selected: nav.page == .styles) { go(.styles) }
-            item("Schedule", selected: nav.page == .schedule) { go(.schedule) }
-            item("Streaks", selected: nav.page == .streaks) { go(.streaks) }
-            item("Share", selected: isShare) { go(.share(.today)) }
-            item("Settings", selected: nav.page == .settings) { go(.settings) }
-            item("About", selected: nav.page == .about) { go(.about) }
+            item("Nudge styles", icon: "bell.badge.fill", tint: Theme.aqua, selected: nav.page == .styles) { go(.styles) }
+            item("Schedule", icon: "calendar", tint: Theme.sun, selected: nav.page == .schedule) { go(.schedule) }
+            item("Streaks", icon: "flame.fill", tint: Theme.coral, selected: nav.page == .streaks) { go(.streaks) }
+            item("Share", icon: "square.and.arrow.up.fill", tint: Theme.lilac, selected: isShare) { go(.share(.today)) }
+            item("Settings", icon: "gearshape.fill", tint: Theme.sprout, selected: nav.page == .settings) { go(.settings) }
+            item("About", icon: "heart.fill", tint: Theme.orange, selected: nav.page == .about) { go(.about) }
             Spacer()
             PushinessBox(model: model)
         }
@@ -220,11 +200,14 @@ struct Sidebar: View {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { nav.page = p }
     }
 
-    private func item(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func item(_ title: String, icon: String, tint: Color, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.display(14, .semibold))
+            HStack(spacing: 10) {
+                NavIcon(symbol: icon, tint: tint)
+                Text(title).font(.display(14, .semibold))
+            }
                 .foregroundStyle(selected ? Theme.inverseText : Theme.text)
-                .padding(.horizontal, 12).padding(.vertical, 9)
+                .padding(.horizontal, 8).padding(.vertical, 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background {
                     if selected { RoundedRectangle(cornerRadius: 10).fill(Theme.inverse).matchedGeometryEffect(id: "pill", in: pill) }
@@ -233,6 +216,8 @@ struct Sidebar: View {
         }
         .buttonStyle(.plain)
         .handCursor()
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -270,9 +255,9 @@ extension Pushiness {
     }
     var blurb: String {
         switch self {
-        case .gentle: "Retries twice, never takes over."
-        case .nag: "Retries sooner; takes over after two ignores."
-        case .max: "Relentless. You asked for this."
+        case .gentle: "Retries twice. Never blocks your screen."
+        case .nag: "Can block the screen after two ignores."
+        case .max: "Can block the screen after one ignore. You asked for this."
         }
     }
 }
@@ -370,13 +355,18 @@ struct HabitEditor: View {
     private func set(_ change: (inout HabitConfig) -> Void) { model.updateHabit(kind, change) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             header
             if c.enabled {
-                nudgePicker
+                summary
+                SectionTitle(number: 1, title: "When", tint: kind.color)
+                whenCard
+                SectionTitle(number: 2, title: "How should \(kind.character) get your attention?", tint: kind.color)
+                howCard
+                SectionTitle(number: 3, title: "If you ignore it", tint: kind.color)
                 HStack(alignment: .top, spacing: 16) {
-                    whenCard.frame(maxWidth: .infinity)
-                    VStack(spacing: 16) { soundCard; ignoredCard }.frame(maxWidth: .infinity)
+                    ignoredCard.frame(maxWidth: .infinity)
+                    extrasCard.frame(maxWidth: 280)
                 }
             } else {
                 VStack(spacing: 10) {
@@ -393,66 +383,128 @@ struct HabitEditor: View {
     private var header: some View {
         HStack(spacing: 16) {
             CharacterView(kind: kind, expression: c.enabled ? .happy : .sleepy, size: 76, animated: true, bump: cheer)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(kind.character).font(.display(34, .bold)).foregroundStyle(Theme.text)
+                    .accessibilityAddTraits(.isHeader)
                 Text("\(kind.title) · goal \(c.goal) \(c.goalNoun) a day").font(.body(14)).foregroundStyle(Theme.muted)
             }
             Spacer()
             Toggle("", isOn: Binding(get: { c.enabled }, set: { on in
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { set { $0.enabled = on } }
                 if on { cheer += 1 }
-            })).toggleStyle(ToySwitch())
+            }))
+            .toggleStyle(ToySwitch())
+            .accessibilityLabel("\(kind.character) on shift")
             if c.enabled {
-                Button("Preview nudge") { model.previewNudges(kind) }.buttonStyle(ToyButton(fill: kind.color, size: 14))
+                Button { model.previewNudges(kind) } label: { Label("Preview", systemImage: "play.fill") }
+                    .buttonStyle(ToyButton(fill: kind.color, size: 14))
+                    .help("Show \(kind.character)'s nudge right now. Your schedule stays the same.")
             }
         }
     }
 
-    private var nudgePicker: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("HOW \(kind.character.uppercased()) NUDGES YOU (PICK UP TO 2)").font(.display(13, .semibold)).foregroundStyle(Theme.muted)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
-                ForEach(NudgeType.allCases) { t in
-                    let on = c.nudges.contains(t)
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) { set { $0.toggle(t) } }
-                        cheer += 1
-                    } label: {
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 4) {
-                                Text(t.title).font(.display(13.5, .semibold))
-                                if on {
-                                    Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))
-                                        .transition(.scale.combined(with: .opacity))
-                                }
-                            }
-                            .foregroundStyle(on ? Theme.ink : Theme.text)
-                            Text(t.subtitle(for: kind, sound: c.sound)).font(.body(11.5)).foregroundStyle(on ? Theme.ink.opacity(0.75) : Theme.muted)
-                                .lineLimit(2, reservesSpace: true)
-                        }
-                        .padding(11)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .toyCard(on ? kind.color.opacity(0.9) : Theme.raised, radius: 12, shadow: on ? 3 : 0)
-                        .offset(y: on ? -2 : 0)
-                        .keyframeAnimator(initialValue: 1.0, trigger: on) { v, sc in v.scaleEffect(sc) } keyframes: { _ in
-                            KeyframeTrack {
-                                SpringKeyframe(1.06, duration: 0.12)
-                                SpringKeyframe(1.0, duration: 0.35, spring: .bouncy)
-                            }
-                        }
-                        .contentShape(Rectangle())
+    /// The whole setup, read back as one sentence, so nobody has to decode the controls.
+    private var summary: some View {
+        let strong = { (s: String) in Text(s).font(.body(14.5, .heavy)).foregroundColor(Theme.text) }
+        let plain = { (s: String) in Text(s).font(.body(14.5, .semibold)).foregroundColor(Theme.text.opacity(0.8)) }
+        return HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "text.bubble.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(kind.accent)
+                .accessibilityHidden(true)
+            (plain("\(kind.character) will ") + strong(c.style.sentence(kind)) + plain(" ") + strong(c.scheduleSentence)
+                + plain(", \(c.windowSentence)") + (c.playsSound ? plain(", with ") + strong(soundName(c.sound).lowercased()) : plain(""))
+                + plain("."))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .toyCard(kind.wash, radius: 14, shadow: 0)
+        .accessibilityElement(children: .combine)
+        .animation(.easeInOut(duration: 0.2), value: c)
+    }
+
+    private var level: NudgeLevel { c.style.level ?? .subtle }
+
+    private func pick(_ style: NudgeType) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.7)) { set { $0.style = style } }
+        cheer += 1
+    }
+
+    private var howCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
+                ForEach(NudgeLevel.allCases) { l in
+                    LevelCard(level: l, kind: kind, selected: l == level) {
+                        // Keep the current style if it's already on this level; else the character's own pick, else the first.
+                        guard l != level else { return }
+                        let own = HabitConfig.defaults(for: kind).style
+                        pick(own.level == l ? own : l.styles[0])
                     }
-                    .buttonStyle(.plain)
-                    .handCursor()
-                    .contextMenu { Button("Preview \(t.title)") { model.previewNudges(kind, types: [t]) } }
                 }
             }
-            Text("Tip: right-click any style to preview it on its own.").font(.body(11.5)).foregroundStyle(Theme.muted)
+            // The chosen level, in words, plus its styles.
+            VStack(alignment: .leading, spacing: 10) {
+                Text(level.blurb(kind)).font(.body(13.5)).foregroundStyle(Theme.text.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Text(level.styles.count > 1 ? "Style" : "Looks like").font(.body(12.5, .bold)).foregroundStyle(Theme.muted)
+                    ForEach(level.styles) { st in
+                        StyleChip(style: st, kind: kind, selected: st == c.style,
+                                  pick: { pick(st) }, preview: { model.previewNudges(kind, types: [st]) })
+                    }
+                }
+                Text(c.style.subtitle(for: kind, sound: c.sound))
+                    .font(.body(12.5)).foregroundStyle(Theme.muted)
+                    .contentTransition(.opacity)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Theme.canvas))
+            Divider()
+            HStack(spacing: 10) {
+                Toggle("", isOn: Binding(get: { c.playsSound }, set: { on in
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { set { $0.playsSound = on } }
+                })).toggleStyle(ToySwitch(tint: kind.accent)).accessibilityLabel("Play a sound too")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Play a sound too").font(.display(14, .semibold)).foregroundStyle(Theme.text)
+                    Text(c.playsSound ? "Every nudge starts with it." : "Silent nudges.").font(.body(12)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Group {
+                    if Motion.snapshot {
+                        // Offscreen renders can't draw AppKit pop-ups; show what the picker displays.
+                        HStack { Text(soundName(c.sound)); Spacer(); Image(systemName: "chevron.up.chevron.down") }
+                            .font(.body(13, .bold)).foregroundStyle(Theme.text)
+                            .padding(.horizontal, 10).frame(height: 26)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.raised))
+                            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.line, lineWidth: 1.5))
+                    } else {
+                        Picker("Sound", selection: Binding(get: { c.sound }, set: { s in set { $0.sound = s } })) {
+                            ForEach(SoundCue.allCases) { Text(soundName($0)).tag($0) }
+                        }
+                        .labelsHidden()
+                    }
+                }
+                .frame(width: 160)
+                .opacity(c.playsSound ? 1 : 0.55)
+                Button { model.sound.play(c.sound, seconds: 6) } label: {
+                    Image(systemName: "play.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.ink)
+                        .frame(width: 30, height: 30).background(Circle().fill(kind.color))
+                        .overlay(Circle().strokeBorder(Theme.ink, lineWidth: 2))
+                }
+                .buttonStyle(.plain)
+                .handCursor()
+                .help("Hear \(soundName(c.sound).lowercased())")
+                .accessibilityLabel("Play \(soundName(c.sound))")
+            }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .toyCard(Theme.raised, radius: 16)
     }
 
     private var whenCard: some View {
-        EditorCard(title: "WHEN") {
+        EditorCard {
             HStack(spacing: 6) {
                 let every = { if case .every = c.schedule { true } else { false } }()
                 Button("Every…") { if !every { set { $0.schedule = .every(minutes: 45, anchor: .lastDone) } } }
@@ -465,11 +517,11 @@ struct HabitEditor: View {
             switch c.schedule {
             case let .every(minutes, anchor):
                 HStack(spacing: 12) {
-                    StepButton("minus") { set { $0.schedule = .every(minutes: max(5, minutes - (minutes > 60 ? 15 : 5)), anchor: anchor) } }
+                    StepButton("minus", label: "Nudge more often") { set { $0.schedule = .every(minutes: max(5, minutes - (minutes > 60 ? 15 : 5)), anchor: anchor) } }
                     Text(durationText(minutes)).font(.display(30, .bold)).foregroundStyle(Theme.text).monospacedDigit()
                         .contentTransition(.numericText(value: Double(minutes)))
                         .animation(.spring(response: 0.3), value: minutes)
-                    StepButton("plus") { set { $0.schedule = .every(minutes: min(480, minutes + (minutes >= 60 ? 15 : 5)), anchor: anchor) } }
+                    StepButton("plus", label: "Nudge less often") { set { $0.schedule = .every(minutes: min(480, minutes + (minutes >= 60 ? 15 : 5)), anchor: anchor) } }
                     Text("About \(perDay(minutes)) nudges a day").font(.body(12.5)).foregroundStyle(Theme.muted)
                 }
                 HStack(spacing: 6) {
@@ -502,51 +554,47 @@ struct HabitEditor: View {
         return max(1, span / max(1, minutes))
     }
 
-    private var soundCard: some View {
-        EditorCard(title: "SOUND") {
-            HStack(spacing: 10) {
-                Button { model.sound.play(c.sound, seconds: 6) } label: {
-                    Image(systemName: "play.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.ink)
-                        .frame(width: 30, height: 30).background(Circle().fill(kind.color))
-                        .overlay(Circle().strokeBorder(Theme.ink, lineWidth: 2))
-                }
-                .buttonStyle(.plain)
-                .handCursor()
-                Picker("", selection: Binding(get: { c.sound }, set: { s in set { $0.sound = s } })) {
-                    ForEach(SoundCue.allCases) { Text(soundName($0)).tag($0) }
-                }
-                .labelsHidden()
+    private var ignoredCard: some View {
+        EditorCard {
+            HStack(spacing: 6) {
+                Text("Try again in").font(.body(13.5))
+                StepButton("minus", small: true, label: "Sooner") { set { $0.retryMinutes = max(2, $0.retryMinutes - 1) } }
+                Text("\(c.retryMinutes) min").font(.display(14, .semibold)).monospacedDigit()
+                    .contentTransition(.numericText(value: Double(c.retryMinutes))).animation(.spring(response: 0.3), value: c.retryMinutes)
+                    .accessibilityLabel("Retry every \(c.retryMinutes) minutes")
+                StepButton("plus", small: true, label: "Later") { set { $0.retryMinutes = min(60, $0.retryMinutes + 1) } }
+                Text("a little louder each time.").font(.body(13.5))
             }
-            Text(c.nudges.contains(.sound) ? "Plays when \(kind.character) nudges you." : "Add “Sound cue” above to hear it on each nudge.")
-                .font(.body(11.5)).foregroundStyle(Theme.muted)
+            .foregroundStyle(Theme.text)
+            IgnoreLadder(config: c, pushiness: model.settings.pushiness)
+            Label("How far it goes depends on Pushiness (\(model.settings.pushiness.label)), at the bottom of the sidebar. No grudges either way.",
+                  systemImage: "info.circle")
+                .font(.body(12)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var ignoredCard: some View {
-        EditorCard(title: "IF IGNORED") {
-            HStack(spacing: 6) {
-                Text("Try again in").font(.body(13.5))
-                StepButton("minus", small: true) { set { $0.retryMinutes = max(2, $0.retryMinutes - 1) } }
-                Text("\(c.retryMinutes) min").font(.display(14, .semibold)).monospacedDigit()
-                    .contentTransition(.numericText(value: Double(c.retryMinutes))).animation(.spring(response: 0.3), value: c.retryMinutes)
-                StepButton("plus", small: true) { set { $0.retryMinutes = min(60, $0.retryMinutes + 1) } }
+    private var extrasCard: some View {
+        EditorCard {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Daily goal").font(.display(13.5, .semibold)).foregroundStyle(Theme.text)
+                HStack(spacing: 6) {
+                    StepButton("minus", small: true, label: "Lower goal") { set { $0.goal = max(1, $0.goal - 1) } }
+                    Text("\(c.goal) \(c.goalNoun)").font(.display(14, .semibold)).monospacedDigit().foregroundStyle(Theme.text)
+                        .contentTransition(.numericText(value: Double(c.goal))).animation(.spring(response: 0.3), value: c.goal)
+                    StepButton("plus", small: true, label: "Raise goal") { set { $0.goal = min(30, $0.goal + 1) } }
+                }
             }
-            .foregroundStyle(Theme.text)
-            Text("then step up one rung. \(kind.character) gives up after \(model.settings.pushiness == .gentle ? 2 : model.settings.pushiness == .nag ? 3 : 4) tries and doesn't hold grudges.")
-                .font(.body(12.5)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .contain)
             Divider()
-            HStack(spacing: 6) {
-                Text("Daily goal").font(.body(13.5))
-                StepButton("minus", small: true) { set { $0.goal = max(1, $0.goal - 1) } }
-                Text("\(c.goal) \(c.goalNoun)").font(.display(14, .semibold)).monospacedDigit()
-                    .contentTransition(.numericText(value: Double(c.goal))).animation(.spring(response: 0.3), value: c.goal)
-                StepButton("plus", small: true) { set { $0.goal = min(30, $0.goal + 1) } }
+            if Motion.snapshot {
+                Label("Also send a macOS notification", systemImage: c.notify ? "checkmark.square.fill" : "square")
+                    .font(.body(13)).foregroundStyle(Theme.text)
+            } else {
+                Toggle(isOn: Binding(get: { c.notify }, set: { n in set { $0.notify = n } })) {
+                    Text("Also send a macOS notification").font(.body(13)).foregroundStyle(Theme.text)
+                }
+                .toggleStyle(.checkbox)
             }
-            .foregroundStyle(Theme.text)
-            Toggle(isOn: Binding(get: { c.notify }, set: { n in set { $0.notify = n } })) {
-                Text("Also send a macOS notification").font(.body(13))
-            }
-            .toggleStyle(.checkbox)
             if notifier.denied, c.notify {
                 Text("Notifications are off for Nudgelings in System Settings.").font(.body(11.5)).foregroundStyle(HabitKind.stretch.accent)
             }
@@ -554,12 +602,33 @@ struct HabitEditor: View {
     }
 }
 
-struct EditorCard<Content: View>: View {
+/// Numbered step heading for the editor's guided flow.
+struct SectionTitle: View {
+    let number: Int
     let title: String
+    var tint: Color = Theme.leaf
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("\(number)").font(.display(14, .bold)).foregroundStyle(Theme.ink)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(tint))
+                .overlay(Circle().strokeBorder(Theme.outline, lineWidth: 2))
+                .accessibilityHidden(true)
+            Text(title).font(.display(18, .semibold)).foregroundStyle(Theme.text)
+        }
+        .padding(.top, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Step \(number): \(title)")
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+struct EditorCard<Content: View>: View {
+    var title: String? = nil
     @ViewBuilder var content: Content
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.display(12.5, .semibold)).foregroundStyle(Theme.muted)
+            if let title { Text(title).font(.display(12.5, .semibold)).foregroundStyle(Theme.muted) }
             content
         }
         .padding(16)
@@ -571,16 +640,20 @@ struct EditorCard<Content: View>: View {
 struct StepButton: View {
     let icon: String
     var small = false
+    var label: String?
     var action: () -> Void
-    init(_ icon: String, small: Bool = false, action: @escaping () -> Void) { self.icon = icon; self.small = small; self.action = action }
+    init(_ icon: String, small: Bool = false, label: String? = nil, action: @escaping () -> Void) {
+        self.icon = icon; self.small = small; self.label = label; self.action = action
+    }
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: small ? 10 : 13, weight: .heavy)).foregroundStyle(Theme.ink)
-                .frame(width: small ? 24 : 34, height: small ? 24 : 34)
+            Image(systemName: icon).font(.system(size: small ? 11 : 13, weight: .heavy)).foregroundStyle(Theme.ink)
+                .frame(width: small ? 28 : 34, height: small ? 28 : 34)
                 .toyCard(.white, radius: 9, shadow: 2)
         }
         .buttonStyle(.plain)
         .handCursor()
+        .accessibilityLabel(label ?? (icon == "minus" ? "Decrease" : "Increase"))
     }
 }
 
@@ -588,6 +661,7 @@ struct HoursRow: View {
     @Binding var window: ActiveWindow
     let tint: Color
     private let days = [(2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S"), (1, "S")]
+    private let names = [1: "Sunday", 2: "Monday", 3: "Tuesday", 4: "Wednesday", 5: "Thursday", 6: "Friday", 7: "Saturday"]
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
@@ -607,6 +681,8 @@ struct HoursRow: View {
                         .background(RoundedRectangle(cornerRadius: 8).fill(on ? Theme.inverse : Color.clear))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(on ? Theme.inverse : Theme.muted.opacity(0.5), lineWidth: 1.5))
                         .foregroundStyle(on ? Theme.inverseText : Theme.muted)
+                        .accessibilityLabel(names[day] ?? label)
+                        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
                 }
             }
         }
@@ -684,35 +760,70 @@ struct StylesPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Nudge styles").font(.display(34, .bold)).foregroundStyle(Theme.text)
-            Text("The ladder, quietest first. Ignored nudges come back one rung louder.").font(.body(14)).foregroundStyle(Theme.muted)
+            Text("Nudge styles").font(.display(34, .bold)).foregroundStyle(Theme.text).accessibilityAddTraits(.isHeader)
+            Text("Four levels, quietest first. Each character uses one; ignore a nudge and it comes back a level louder.")
+                .font(.body(14)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
-                Text("Try with").font(.body(13)).foregroundStyle(Theme.muted)
+                Text("Preview with").font(.body(13)).foregroundStyle(Theme.muted)
                 ForEach(HabitKind.allCases) { k in
-                    Button { who = k } label: { CharacterView(kind: k, expression: .happy, size: 30, shadow: false) }
-                        .buttonStyle(.plain)
-                        .handCursor()
-                        .padding(3)
-                        .background(Circle().fill(who == k ? k.color.opacity(0.35) : .clear))
+                    Button { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { who = k } } label: {
+                        CharacterView(kind: k, expression: .happy, size: 28, shadow: false)
+                            .padding(4)
+                            .background(Circle().fill(who == k ? k.color.opacity(0.35) : .clear))
+                            .overlay(Circle().strokeBorder(who == k ? Theme.outline : .clear, lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                    .handCursor()
+                    .accessibilityLabel(k.character)
+                    .accessibilityAddTraits(who == k ? [.isButton, .isSelected] : .isButton)
                 }
             }
-            ForEach(Array(NudgeType.allCases.enumerated()), id: \.element) { i, t in
-                HStack(spacing: 14) {
-                    Text("\(i + 1)").font(.display(15, .bold)).foregroundStyle(Theme.inverseText)
-                        .frame(width: 30, height: 30).background(Circle().fill(Theme.inverse))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(t.title).font(.display(15, .semibold)).foregroundStyle(Theme.text)
-                        Text(t.subtitle(for: who, sound: model.settings.config(who).sound)).font(.body(12.5)).foregroundStyle(Theme.muted)
-                    }
-                    Spacer()
-                    if t.blocksScreen { Text("Blocks screen").font(.body(11, .bold)).foregroundStyle(HabitKind.stretch.accent) }
-                    Button("Try") { model.previewNudges(who, types: [t]) }.buttonStyle(ToyButton(fill: who.color, size: 12.5))
-                }
-                .padding(12)
-                .toyCard(Theme.raised, radius: 14, shadow: 2)
-                .entrance(i, step: 0.035, base: 0.08)
+            ForEach(Array(NudgeLevel.allCases.enumerated()), id: \.element) { i, level in
+                levelSection(level).entrance(i, step: 0.05, base: 0.08)
             }
         }
+    }
+
+    private func levelSection(_ level: NudgeLevel) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                LevelArt(level: level, kind: who, live: true).frame(width: 150)
+                LoudnessMeter(level: level)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Text(level.title).font(.display(19, .bold)).foregroundStyle(Theme.text).accessibilityAddTraits(.isHeader)
+                    Text(level.tagline).font(.body(13, .bold)).foregroundStyle(Theme.muted)
+                }
+                Text(level.blurb(who)).font(.body(13)).foregroundStyle(Theme.text.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
+                ForEach(level.styles) { t in
+                    HStack(spacing: 10) {
+                        Image(systemName: t.symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.ink)
+                            .frame(width: 26, height: 26).background(RoundedRectangle(cornerRadius: 7).fill(who.color))
+                            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.outline, lineWidth: 1.5))
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(t.title).font(.display(14, .semibold)).foregroundStyle(Theme.text)
+                            Text(t.subtitle(for: who, sound: model.settings.config(who).sound)).font(.body(12)).foregroundStyle(Theme.muted)
+                        }
+                        Spacer()
+                        if t.blocksScreen {
+                            Label("Blocks clicks", systemImage: "hand.raised.fill").font(.body(11.5, .heavy))
+                                .foregroundStyle(HabitKind.stretch.accent)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(Capsule().fill(HabitKind.stretch.wash))
+                        }
+                        Button { model.previewNudges(who, types: [t]) } label: { Label("Try", systemImage: "play.fill") }
+                            .buttonStyle(ToyButton(fill: who.color, size: 12))
+                            .accessibilityLabel("Try \(t.title) with \(who.character)")
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .toyCard(Theme.raised, radius: 16, shadow: 3)
     }
 }
 

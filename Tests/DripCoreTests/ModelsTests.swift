@@ -117,3 +117,45 @@ private let legacySettingsJSON = """
     #expect(DayProgress.done(settings: s, stats: stats) == 9)
     #expect(DayProgress.fraction(settings: .initial, stats: stats) == 0)
 }
+
+@Test func everyNudgeBelongsToOneLevelInLadderOrder() {
+    #expect(NudgeLevel.allCases == [.subtle, .polite, .playful, .unmissable])
+    #expect(NudgeLevel.subtle.styles == [.menuWiggle])
+    #expect(NudgeLevel.polite.styles == [.toast, .menuShow])
+    #expect(NudgeLevel.playful.styles == [.walkAcross, .cursorTrail, .gag])
+    #expect(NudgeLevel.unmissable.styles == [.dim, .takeover, .miniGame])
+    // Sound is a modifier, not a style: it lives on no level.
+    #expect(NudgeLevel.allCases.allSatisfy { !$0.styles.contains(.sound) })
+    #expect(NudgeType.sound.level == nil)
+    #expect(NudgeType.gag.level == .playful)
+}
+
+@Test func styleIsTheFirstVisualNudgeAndSoundIsSeparate() {
+    var c = HabitConfig.defaults(for: .water)          // [toast, sound]
+    #expect(c.style == .toast)
+    #expect(c.playsSound)
+    c.nudges = [.sound]
+    #expect(c.style == .menuWiggle)                    // nothing visual picked: the quietest style
+    c.nudges = [.dim]
+    #expect(!c.playsSound)
+}
+
+@Test func choosingAStyleKeepsTheSoundChoice() {
+    var c = HabitConfig.defaults(for: .water)          // [toast, sound]
+    c.style = .walkAcross
+    #expect(c.nudges == [.walkAcross, .sound])
+    c.nudges = [.toast, .gag]                          // an older two-visual pick collapses to one
+    c.style = .dim
+    #expect(c.nudges == [.dim])
+}
+
+@Test func soundSwitchAddsOrRemovesOnlyTheSound() {
+    var c = HabitConfig.defaults(for: .eyes)           // [dim]
+    c.playsSound = true
+    #expect(c.nudges == [.dim, .sound])
+    c.playsSound = false
+    #expect(c.nudges == [.dim])
+    c.nudges = [.sound]
+    c.playsSound = false
+    #expect(c.nudges == [.menuWiggle])                 // never left with nothing to show
+}

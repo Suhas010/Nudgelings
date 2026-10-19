@@ -71,6 +71,25 @@ public enum NudgeType: String, CaseIterable, Codable, Sendable, Identifiable {
 
     /// Covers the screen and takes clicks (everything else is click-through or tucked in a corner).
     public var blocksScreen: Bool { self == .takeover || self == .miniGame }
+
+    /// Which level of loudness this style sits on. Sound has none: it rides along with any style.
+    public var level: NudgeLevel? { NudgeLevel.allCases.first { $0.styles.contains(self) } }
+}
+
+/// What people actually choose: how much a reminder should interrupt them.
+/// Each level groups the styles that interrupt about as much, quietest first.
+public enum NudgeLevel: String, CaseIterable, Codable, Sendable, Identifiable {
+    case subtle, polite, playful, unmissable
+    public var id: String { rawValue }
+
+    public var styles: [NudgeType] {
+        switch self {
+        case .subtle: [.menuWiggle]
+        case .polite: [.toast, .menuShow]
+        case .playful: [.walkAcross, .cursorTrail, .gag]
+        case .unmissable: [.dim, .takeover, .miniGame]
+        }
+    }
 }
 
 /// How hard the crew pushes when ignored.
@@ -138,6 +157,22 @@ public struct HabitConfig: Codable, Equatable, Sendable {
         }
         return HabitConfig(kind: kind, enabled: false, schedule: .every(minutes: minutes, anchor: .lastDone),
                            window: .workdays, nudges: nudges, goal: goal, sound: sound)
+    }
+
+    /// The one visual style shown on each nudge (the quietest one when only a sound is picked).
+    /// Setting it replaces every visual pick and keeps the sound choice.
+    public var style: NudgeType {
+        get { nudges.first { $0 != .sound } ?? .menuWiggle }
+        set { nudges = [newValue == .sound ? .menuWiggle : newValue] + (playsSound ? [.sound] : []) }
+    }
+
+    /// Whether each nudge also plays the character's sound.
+    public var playsSound: Bool {
+        get { nudges.contains(.sound) }
+        set {
+            let visual = nudges.filter { $0 != .sound }
+            nudges = (visual.isEmpty ? [.menuWiggle] : visual) + (newValue ? [.sound] : [])
+        }
     }
 
     /// Pick or unpick a nudge type: at most two (the oldest pick drops off), never zero.

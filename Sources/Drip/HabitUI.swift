@@ -18,9 +18,10 @@ let snoozeLabel = "Snooze \(Int(ReminderEngine.snoozeSeconds / 60))m 😅"
 
 /// Encodes a SwiftUI view as PNG at 1× (the view's own point size is the pixel size).
 @MainActor
-func pngData(of view: some View) -> Data? {
+func pngData(of view: some View, scale: Double? = nil) -> Data? {
     let r = ImageRenderer(content: view)
-    r.scale = 1
+    // Share cards/icons render at 1×; snapshot runs can ask for sharper output (NUDGE_SNAPSHOT_SCALE=2).
+    r.scale = scale ?? Double(ProcessInfo.processInfo.environment["NUDGE_SNAPSHOT_SCALE"] ?? "") ?? 1
     guard let cg = r.cgImage else { return nil }
     return NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:])
 }
