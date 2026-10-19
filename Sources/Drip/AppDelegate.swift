@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Fonts.register()
+        if InstallLocation.offerMoveIfNeeded() { return }        // the moved copy takes over
         model = AppModel()
         overlay = OverlayController(model: model)
         menuBar = MenuBarController(model: model)
@@ -39,8 +40,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.previewNudges(kind, types: types.isEmpty ? nil : types)
     }
 
+    /// Opened again (Finder, Spotlight, Launchpad) while already running. With no Dock icon or window
+    /// there'd be nothing to bring forward, so show the tour if it isn't done, else the main window.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard let model else { return false }
+        if !model.settings.onboarded { showOnboarding() } else if !flag { showMain() }
+        return true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
-        model.save()
+        model?.save()
     }
 
     // MARK: Away (lock / sleep) → treated like hush

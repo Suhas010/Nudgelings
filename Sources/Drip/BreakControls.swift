@@ -165,9 +165,9 @@ extension Pushiness {
     /// Longer explanation for the onboarding tiles.
     var onboardingBlurb: String {
         switch self {
-        case .gentle: "Retries twice, never takes over."
-        case .nag: "Retries sooner; takes over after two ignores."
-        case .max: "Climbs two rungs at a time; takes over after one ignore."
+        case .gentle: "Retries twice. Never blocks your screen."
+        case .nag: "Retries sooner; can block the screen after two ignores."
+        case .max: "Gets louder twice as fast; can block the screen after one ignore."
         }
     }
 }

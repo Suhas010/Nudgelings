@@ -1,13 +1,18 @@
 #!/bin/zsh
-# Builds "dist/Nudgelings.app" (release, ad-hoc signed). Usage: scripts/build-app.sh
+# Builds "dist/Nudgelings.app" (release, universal, ad-hoc signed). Usage: scripts/build-app.sh
 set -e
 cd "$(dirname "$0")/.."
-swift build -c release
-BIN=$(swift build -c release --show-bin-path)
+# Universal: Apple Silicon + Intel, built separately and merged.
+ARM=arm64-apple-macosx14.0
+INTEL=x86_64-apple-macosx14.0
+swift build -c release --triple $ARM
+swift build -c release --triple $INTEL
+BIN=$(swift build -c release --triple $ARM --show-bin-path)
+BIN_INTEL=$(swift build -c release --triple $INTEL --show-bin-path)
 APP="dist/Nudgelings.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN/Drip" "$APP/Contents/MacOS/Drip"
+lipo -create "$BIN/Drip" "$BIN_INTEL/Drip" -output "$APP/Contents/MacOS/Drip"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources/Fonts" && cp Resources/Fonts/* "$APP/Contents/Resources/Fonts/"
 

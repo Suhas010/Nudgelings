@@ -5,6 +5,11 @@ MainActor.assumeIsolated {
         Snapshots.icon(to: CommandLine.arguments[i + 1])
         exit(0)
     }
+    if let i = CommandLine.arguments.firstIndex(of: "--dmg-background"), i + 1 < CommandLine.arguments.count {
+        // Installer art for scripts/make-dmg.sh: <path>.png at 1× and <path>@2x.png.
+        Snapshots.dmgBackground(to: CommandLine.arguments[i + 1])
+        exit(0)
+    }
     if CommandLine.arguments.contains("--snapshot") {
         // Dev aid: render key views to PNGs so visuals can be checked without clicking around.
         Snapshots.run()
